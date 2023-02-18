@@ -1,0 +1,6 @@
+{
+    "bookName": "my-load-book-name",
+    "baseURL": "https://my-load-book-website/path",
+    "debugFiddler": false,
+    "bookDir": "./book"
+}

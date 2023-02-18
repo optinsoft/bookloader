@@ -1,0 +1,21 @@
+{
+  "name": "bookloader",
+  "version": "1.0.0",
+  "description": "Load book from web site and save fb2",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "book",
+    "fb2",
+    "load"
+  ],
+  "author": "Vitaly Yakovlev",
+  "license": "MIT",
+  "dependencies": {
+    "https-proxy-agent": "^5.0.1",
+    "node-fetch": "^3.3.0"
+  },
+  "type": "module"
+}
