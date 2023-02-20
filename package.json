@@ -14,7 +14,11 @@
   "author": "Vitaly Yakovlev",
   "license": "MIT",
   "dependencies": {
+    "css-select": "^5.1.0",
+    "dom-serializer": "^2.0.0",
+    "htmlparser2": "^8.0.1",
     "https-proxy-agent": "^5.0.1",
+    "jsonpath-plus": "^7.2.0",
     "node-fetch": "^3.3.0"
   },
   "type": "module"

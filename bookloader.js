@@ -2,38 +2,176 @@ import HttpsProxyAgent from 'https-proxy-agent';
 import fetch from 'node-fetch';
 import {writeFileSync, appendFileSync, existsSync, readFileSync, mkdirSync} from 'fs';
 import { exit } from 'process';
+import { JSONPath } from 'jsonpath-plus';
+import { parseDocument, DomUtils } from 'htmlparser2';
+import { selectAll } from 'css-select';
+import render from 'dom-serializer';
 
-async function loadData(url, debugFiddler) {
+async function loadData(url, options) {
     let fetchInit = {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
-        }
+        headers: {}
+    };
+    if (options.accept) {
+        fetchInit.headers['Accept'] = options.accept;
     }
-    if (debugFiddler) {
+    if (options.post) {
+        const { contentType, body } = options.post;
+        fetchInit.method = 'POST';
+        fetchInit.headers['Content-Type'] = contentType;
+        fetchInit.body = body;
+    }
+    else {
+        fetchInit.method = 'GET';
+    }
+    if (options.debugFiddler) {
         const proxyAgent = new HttpsProxyAgent('http://127.0.0.1:8888')
         fetchInit.agent = proxyAgent;
     }
+    if (options.userAgent) {
+        fetchInit.headers['User-Agent'] = options.userAgent;
+    }
     const response = await fetch(url, fetchInit);
-    const responseJson = await response.json();
-    //console.log(responseJson);
-    return responseJson;    
+    if (options.accept === "application/json") {
+        const responseJson = await response.json();
+        //console.log(responseJson);
+        return responseJson;    
+    }
+    const responseText = await response.text();
+    return responseText;
 }
 
-async function loadBookFb2(bookName, baseURL, debugFiddler, bookDir) {
-    const bookURL = new URL(`${baseURL}/${bookName}.json?book=${bookName}`);
-    const bookJson = await loadData(bookURL.toString(), debugFiddler);
+function formatURL(url, values) {
+    let u = url;
+    for (const [key, value] of Object.entries(values)) {
+        u = u.replaceAll('${' + key + '}', s => {
+            return value;
+        });
+    };
+    return u;
+}
+
+function textReplace(text, replace) {
+    return replace.reduce((allText, {regex, replace}) => {
+        const re = new RegExp(regex);
+        return allText.replace(re, replace);
+    }, text);
+}
+/*    
+function fixContentText(text, chapterName) {
+    const fixArray = [
+        {search: /ё&/ig, replace:'ё'},
+        {search: /&ё/ig, replace:'ё'},
+        {search: /&\./ig, replace:'ё.'},
+        {search: /&,/ig, replace:'ё,'},
+        {search: /\s?&м/ig, replace:'ём'},
+        {search: / & /ig, replace:'ё '},
+    ]
+    fixArray.forEach(({search, replace}) => {
+        text = text.replaceAll(search, substr => {
+            console.log(`fix chapter "${chapterName}" "${substr}" -> "${replace}"`);
+            return replace;
+        });
+    });
+    return text;
+}
+*/
+async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debugFiddler, bookDir, userAgent, loadDelay) {
     
-    writeFileSync(`${bookDir}/json/${bookName}.json`, JSON.stringify(bookJson));
+    const chapterListContentType = chapterList.accept == 'application/json' ? 'json' : 'html';
+
+    let chapterListHtml = '';
+    let chapterListJson = {};
+    const chapterListTypeDir = `${bookDir}/${chapterListContentType}`;
+    if (!existsSync(chapterListTypeDir)) {
+        mkdirSync(chapterListTypeDir);
+    }
+    const chapterListFilename = `${chapterListTypeDir}/${bookName}.${chapterListContentType}`; 
+    const chapterListURL = formatURL(chapterList.URL, { bookName, baseURL });
+    console.log(`loading chapter list from ${chapterListURL}`);
+    let chapterListData = await loadData(chapterListURL, {
+        ...chapterList, 
+        debugFiddler, userAgent
+    });
+    if (chapterListContentType === 'json') {
+        chapterListJson = chapterListData;
+        chapterListData = JSON.stringify(chapterListJson);
+    }
+    else {
+        chapterListHtml = chapterData;
+    }    
+    console.log(`writing chapter list to ${chapterListFilename}`);
+    writeFileSync(chapterListFilename, chapterListData);
+
+    if (chapterList.book) {
+        for (const [key, value] of Object.entries(chapterList.book)) {  
+            if (chapterListContentType === 'json') {
+                const {path, replace} = value;      
+                const jpvalues = JSONPath({json: chapterListJson, path});
+                if (jpvalues) {
+                    if (key === 'genres') {
+                        let genres = jpvalues;
+                        if (replace) {
+                            genres = genres.map(genre => textReplace(genre, replace));
+                        }
+                        book[key] = genres;
+                    }
+                    else if (jpvalues.length) {
+                        book[key] = jpvalues[0];
+                        if (replace) {
+                            book[key] = textReplace(book[key], replace);
+                        }
+                    }
+                }
+            }
+            if (chapterListContentType === 'html') {
+                const dom = parseDocument(chapterListHtml);
+                const { text, replace } = value;
+                const elements = selectAll(text, dom);
+                if (key === 'genres') {
+                    let genres = [];
+                    elements.forEach(el =>{
+                        let elText = DomUtils.textContent(el);
+                        if (replace) {
+                            elText = textReplace(elText, replace);
+                        }
+                        if (elText) {
+                            genres.push(elText);
+                        }
+                    });
+                    book[key] = genres;
+                }
+                else {
+                    book[key] = elements.reduce((allText, el) => {
+                        const elText = DomUtils.textContent(el);
+                        if (elText) {
+                            return allText ? allText + '\r\n' + elText : elText;
+                        }
+                        return allText;
+                    }, '');
+                    if (replace) {
+                        book[key] = textReplace(book[key], replace);
+                    }
+                }
+            }
+        }
+    }
+
+    const {author, description, genres, title, docId} = book;
+
+    let bookChapters = [];
+
+    if (chapters && chapters.path && chapters.URL) {
+        const { path } = chapters;
+        const jpvalues = JSONPath({json: chapterListJson, path});
+        if (jpvalues && jpvalues.length) {
+            bookChapters = jpvalues;
+        }
+    }
     
-    const {author, description, genres, title, chapters} = bookJson.pageProps.book;
-    
-    const genresXMLItems = genres.reduce((items, {title}) => items + `\r\n        <genre>${title}</genre>`, '');
+    const genresXMLItems = genres.reduce((items, genre) => items + `\r\n        <genre>${genre}</genre>`, '');
     
     const docAuthor = '';
     const docDate = new Date().toISOString().split('T')[0]
-    const docId = 176;
     
     const bookDescription = `<description>
         <title-info>${genresXMLItems}
@@ -76,65 +214,145 @@ async function loadBookFb2(bookName, baseURL, debugFiddler, bookDir) {
           setTimeout(resolve, ms);
         });
     }
-    
-    function fixContentText(text, chapterName) {
-        const fixArray = [
-            {search: /ё&/i, replace:'ё'},
-            {search: /&ё/i, replace:'ё'},
-            {search: /&\./i, replace:'ё.'},
-            {search: /&,/i, replace:'ё,'},
-            {search: /\s?&м/i, replace:'ём'},
-            {search: / & /i, replace:'ё '},
-        ]
-        fixArray.forEach(({search, replace}) => {
-            text = text.replace(search, substr => {
-                console.log(`fix chapter "${chapterName}" "${substr}" -> "${replace}"`);
-                return replace;
-            });
-        });
-        return text;
-    }
-    
-    for(const {title, url} of chapters.reverse()) {
-        const u = new URL(`${baseURL}${url}`);
-        let chapterName = u.pathname.substring(u.pathname.lastIndexOf('/')+1);
-        let chapterUrl = u.toString();
-        if (chapterName.endsWith('.json')) {
-            chapterName = chapterName.slice(0, -5);
+
+    for (const chapter of bookChapters.reverse()) {
+        const chapterURL = formatURL(chapters.URL, { bookName, baseURL, chapter });
+        let chapterName = chapter;
+        if (chapterName.endsWith('/')) {
+            chapterName = chapterName.slice(0, -1);
         }
         else {
-            chapterUrl += '.json';
+            const extRegEx = /\.[a-z]{2,5}$/i;
+            chapterName = chapterName.replace(extRegEx, '');    
         }
+        chapterName = chapterName.substring(chapterName.lastIndexOf('/')+1);
         //console.log(chapterName);
-        let chapterJson = '';
-        const chaptersDir = `${bookDir}/json/${bookName}`;
+
+        if (!chapterName) continue;
+
+        const chapterContentType = chapters.accept == 'application/json' ? 'json' : 'html';
+
+        let chapterTitle = ''; 
+        let chapterContent = '';
+
+        let chapterHtml = '';        
+        let chapterJson = {};
+        const chaptersTypeDir = `${bookDir}/${chapterContentType}`;
+        if (!existsSync(chaptersTypeDir)) {
+            mkdirSync(chaptersTypeDir);
+        }
+        const chaptersDir = `${chaptersTypeDir}/${bookName}`;
         if (!existsSync(chaptersDir)) {
             mkdirSync(chaptersDir);
         }
-        const chapterFilename = `${chaptersDir}/${chapterName}.json`;        
+        const chapterFilename = `${chaptersDir}/${chapterName}.${chapterContentType}`;        
         if (!existsSync(chapterFilename)) {
             // console.log(chapterFilename, 'NOT FOUND');
-            console.log(`loading chapter from ${chapterUrl}`);
-            await sleep(500);        
-            chapterJson = await loadData(chapterUrl, debugFiddler);
-            writeFileSync(chapterFilename, JSON.stringify(chapterJson));        
+            console.log(`loading chapter from ${chapterURL}`);
+            if (loadDelay) {
+                await sleep(loadDelay);
+            }
+            let chapterData = await loadData(chapterURL, {
+                ...chapters,
+                debugFiddler, userAgent,
+            });
+            if (chapterContentType === 'json') {
+                chapterJson = chapterData;
+                chapterData = JSON.stringify(chapterJson);
+            }
+            else {
+                chapterHtml = chapterData;
+            }
+            console.log(`writing chapter to ${chapterFilename}`);
+            writeFileSync(chapterFilename, chapterData);        
         }
         else {
-            chapterJson = JSON.parse(readFileSync(chapterFilename));
+            console.log(`reading chapter from ${chapterFilename}`)
+            const chapterData = readFileSync(chapterFilename);
+            if (chapterContentType === 'json') {
+                chapterJson = JSON.parse(chapterData);
+            }
+            else {
+                chapterHtml = chapterData.toString();
+            }
         }
-        const {title, content} = chapterJson.pageProps.chapter;
-        const text = fixContentText(content.text, title);
-    
-        const section = `
-        <section>
-            <title><p>${title}</p></title>        
-            <p></p>${text}
-        </section>`;
-        appendFileSync(`${bookDir}/${bookName}.fb2`, section);
-    
+        if (chapterContentType === 'json') {
+            if (chapters.chapter && chapters.chapter.title) {
+                const { path, replace } = chapters.chapter.title;
+                const jpvalues = JSONPath({json: chapterJson, path});
+                if (jpvalues && jpvalues.length) {
+                    //chapterTitle = jpvalues[0];
+                    const html = jpvalues[0];
+                    const dom = parseDocument(html);
+                    chapterTitle = DomUtils.textContent(dom);
+                }
+                if (replace) {
+                    chapterTitle = textReplace(chapterTitle, replace);
+                }
+            }
+            if (chapters.chapter && chapters.chapter.content) {
+                const { path, replace } = chapters.chapter.content;
+                const jpvalues = JSONPath({json: chapterJson, path});
+                if (jpvalues && jpvalues.length) {
+                    //chapterContent = jpvalues[0];
+                    const html = jpvalues[0];
+                    const dom = parseDocument(html);
+                    chapterContent = render(dom, {
+                        encodeEntities: 'utf8'
+                    });
+                }
+                if (replace) {
+                    chapterContent = textReplace(chapterContent, replace);
+                }
+            }
+        }
+        if (chapterContentType === 'html') {
+            const dom = parseDocument(chapterHtml);
+            if (chapters.chapter && chapters.chapter.title) {
+                const { text, replace } = chapters.chapter.title;
+                const elements = selectAll(text, dom);
+                chapterTitle = elements.reduce((allText, el) => {
+                    const elText = DomUtils.textContent(el);
+                    if (elText) {
+                        return allText ? allText + '\r\n' + elText : elText;
+                    }
+                    return allText;
+                }, '');
+                if (replace) {
+                    chapterTitle = textReplace(chapterTitle, replace);
+                }
+            }
+            if (chapters.chapter && chapters.chapter.content) {
+                const { html, replace } = chapters.chapter.content;
+                const elements = selectAll(html, dom);
+                chapterContent = elements.reduce((allHtml, el) => {
+                    const elHtml = render(el, {
+                        encodeEntities: 'utf8'
+                    });
+                    if (elHtml) {
+                        return allHtml ? allHtml + '\r\n' + elHtml : elHtml;
+                    }
+                    return allHtml;
+                }, '');
+                if (replace) {
+                    chapterContent = textReplace(chapterContent, replace);
+                }
+            }
+        }
+        if (chapterTitle && chapterContent) {
+            //chapterContent = fixContentText(chapterContent, chapterTitle);        
+            const section = `
+            <section>
+                <title><p>${chapterTitle}</p></title>        
+                <p></p>${chapterContent}
+            </section>`;
+            appendFileSync(`${bookDir}/${bookName}.fb2`, section);
+        }
     }
     
     appendFileSync(`${bookDir}/${bookName}.fb2`, bookFooter);    
+
+    console.log(`completed: ${bookDir}/${bookName}.fb2`);
 }
 
 const args = {}
@@ -162,10 +380,18 @@ if (!args['project']) {
 const bookProjectFile = args['project'];
 const bookProject = JSON.parse(readFileSync(bookProjectFile));
 
-const { bookName, baseURL, debugFiddler, bookDir } = bookProject;
+const { bookName, baseURL, chapterList, chapters, debugFiddler, bookDir, userAgent, loadDelay } = bookProject;
+
+const book = bookProject.book || {
+    "author": "",
+    "description": "",
+    "genres": [],
+    "title": "",
+    "docId": 1
+};
 
 if (debugFiddler) {
     process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
 }
 
-await loadBookFb2(bookName, baseURL, debugFiddler, bookDir);
+await loadBookFb2(bookName, book, baseURL, chapterList, chapters, debugFiddler, bookDir, userAgent, loadDelay);
