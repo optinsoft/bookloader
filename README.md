@@ -1,9 +1,23 @@
 # book loader
 
+## Install
+
+Install dependencies by running the following command in the project's directory:
+
+```bash
+npm install
+```
+
 ## Usage
 
 ```bash
 node bookloader.js --project ./book-project.json
+```
+
+or
+
+```bash
+node bookloader.js --project=./book-project.json
 ```
 
 ## book-project.json
