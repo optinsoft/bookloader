@@ -1,5 +1,5 @@
 import HttpsProxyAgent from 'https-proxy-agent';
-import fetch from 'node-fetch';
+import fetch, {AbortError} from 'node-fetch';
 import {writeFileSync, appendFileSync, existsSync, readFileSync, mkdirSync} from 'fs';
 import { exit } from 'process';
 import { JSONPath } from 'jsonpath-plus';
@@ -30,14 +30,34 @@ async function loadData(url, options) {
     if (options.userAgent) {
         fetchInit.headers['User-Agent'] = options.userAgent;
     }
-    const response = await fetch(url, fetchInit);
-    if (options.accept === "application/json") {
-        const responseJson = await response.json();
-        //console.log(responseJson);
-        return responseJson;    
+    var response;
+    for (var i = 5; i > 0; --i) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+            controller.abort();
+
+        }, 5000);
+        fetchInit.signal = controller.signal;      
+        try {  
+            response = await fetch(url, fetchInit)
+            if (options.accept === "application/json") {
+                const responseJson = await response.json();
+                //console.log(responseJson);
+                clearTimeout(timeout);
+                return responseJson;    
+            }
+            const responseText = await response.text();
+            clearTimeout(timeout);
+            return responseText;
+        } catch (e) {
+            if (i > 0 && e?.name === 'AbortError') {
+                console.log('Timed out, retry...');
+            }
+            else {
+                throw e;
+            }
+        }
     }
-    const responseText = await response.text();
-    return responseText;
 }
 
 function formatURL(url, values) {
@@ -97,7 +117,7 @@ async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debug
         chapterListData = JSON.stringify(chapterListJson);
     }
     else {
-        chapterListHtml = chapterData;
+        chapterListHtml = chapterListData;
     }    
     console.log(`writing chapter list to ${chapterListFilename}`);
     writeFileSync(chapterListFilename, chapterListData);
@@ -160,12 +180,34 @@ async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debug
 
     let bookChapters = [];
 
-    if (chapters && chapters.path && chapters.URL) {
-        const { path } = chapters;
-        const jpvalues = JSONPath({json: chapterListJson, path});
-        if (jpvalues && jpvalues.length) {
-            bookChapters = jpvalues;
+    if (chapters) {
+        if (chapterListContentType === 'json') {
+            if (chapters.path && chapters.URL) {
+                const { path } = chapters;
+                const jpvalues = JSONPath({json: chapterListJson, path});
+                if (jpvalues && jpvalues.length) {
+                    bookChapters = jpvalues;
+                }
+            }
         }
+        if (chapterListContentType == 'html') {
+            if (chapters.text && chapters.URL) {
+                const dom = parseDocument(chapterListHtml);
+                const { text, replace } = chapters;
+                const elements = selectAll(text, dom);
+                bookChapters = elements.map(el => DomUtils.textContent(el));
+            }
+            else if (chapters.attribute && chapters.URL) {
+                const dom = parseDocument(chapterListHtml);
+                const {name, tag, replace} = chapters.attribute;
+                const elements = selectAll(tag, dom);
+                bookChapters = elements.map(el => el.attribs[name]);
+            }
+        }
+    }
+
+    if (bookChapters.reverseOrder) {
+        bookChapters = bookChapters.reverse();
     }
     
     const genresXMLItems = genres.reduce((items, genre) => items + `\r\n        <genre>${genre}</genre>`, '');
@@ -215,7 +257,7 @@ async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debug
         });
     }
 
-    for (const chapter of bookChapters.reverse()) {
+    for (const chapter of bookChapters) {
         const chapterURL = formatURL(chapters.URL, { bookName, baseURL, chapter });
         let chapterName = chapter;
         if (chapterName.endsWith('/')) {
