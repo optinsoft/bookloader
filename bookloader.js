@@ -206,7 +206,7 @@ async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debug
         }
     }
 
-    if (bookChapters.reverseOrder) {
+    if (chapterList.reverseOrder) {
         bookChapters = bookChapters.reverse();
     }
     
