@@ -40,7 +40,9 @@ async function loadData(url, options) {
         fetchInit.signal = controller.signal;      
         try {  
             response = await fetch(url, fetchInit)
-            if (options.accept === "application/json") {
+            const responseContentType = options.contentType || 
+                (options.accept === 'application/json' ? 'json' : 'html')
+            if (responseContentType == "json") {
                 const responseJson = await response.json();
                 //console.log(responseJson);
                 clearTimeout(timeout);
@@ -97,7 +99,8 @@ function fixContentText(text, chapterName) {
 */
 async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debugFiddler, bookDir, userAgent, loadDelay) {
     
-    const chapterListContentType = chapterList.accept == 'application/json' ? 'json' : 'html';
+    const chapterListContentType = chapterList.contentType ||
+        (chapterList.accept === 'application/json' ? 'json' : 'html');
 
     let chapterListHtml = '';
     let chapterListJson = {};
@@ -272,7 +275,8 @@ async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debug
 
         if (!chapterName) continue;
 
-        const chapterContentType = chapters.accept == 'application/json' ? 'json' : 'html';
+        const chapterContentType = chapters.contentType ||
+            (chapters.accept === 'application/json' ? 'json' : 'html');
 
         let chapterTitle = ''; 
         let chapterContent = '';
