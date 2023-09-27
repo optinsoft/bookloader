@@ -50,6 +50,7 @@ node bookloader.js --project=./book-project.json
 |------|:----:|-------------|
 | URL | String | The URL of the downloading chapter list |
 | accept | String | HTTP `Accept` header. Possible values: `application/json`, `text/html`. |
+| contentType | String | Response content type: `json` or `html` |
 | post | Object | HTTP Post (see [example](#http-post-example) below) |
 | book | Object | The rules to extract Book Details from [HTML] (#extract-book-details-from-html) or [JSON](#extract-book-details-from-json) |
 | reverseOrder| Boolean | Chapters in the list are in the reverse order |
@@ -109,6 +110,8 @@ node bookloader.js --project=./book-project.json
 | text| String | CSS Selector - location of the chapter in the Chapter List HTML. Extracted value stored in `${chapter}` variable. |
 | attribute | Object | Extract `${chapter}` from the tag attribute (Chapter List HTML). Example - extract the attribute `value` from the tag `option`: `"attribute": { "name": "value", "tag": "option" }` ("name" - name of the attribute, "tag" - CSS Selector).  |
 | URL | String | The URL of the downloading chapter. You can use `${chapter}` here. |
+| accept | String | HTTP `Accept` header. Possible values: `application/json`, `text/html`. |
+| contentType | String | Response content type: `json` or `html` |
 | chapter | Object | Chapter details: `title` and `content`. See examples of extracting chapter details from [HTML](#extract-chapter-details-from-html) and [JSON](#extract-chapter-details-from-json) below. |
 
 ## Extract Chapter Details from HTML
