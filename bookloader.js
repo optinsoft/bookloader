@@ -6,6 +6,7 @@ import { JSONPath } from 'jsonpath-plus';
 import { parseDocument, DomUtils } from 'htmlparser2';
 import { selectAll } from 'css-select';
 import render from 'dom-serializer';
+import 'dotenv/config';
 
 async function loadData(url, options) {
     let fetchInit = {
@@ -23,8 +24,8 @@ async function loadData(url, options) {
     else {
         fetchInit.method = 'GET';
     }
-    if (options.debugFiddler) {
-        const proxyAgent = new HttpsProxyAgent('http://127.0.0.1:8888')
+    if (options.proxy) {
+        const proxyAgent = new HttpsProxyAgent(options.proxy)
         fetchInit.agent = proxyAgent;
     }
     if (options.userAgent) {
@@ -97,7 +98,7 @@ function fixContentText(text, chapterName) {
     return text;
 }
 */
-async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debugFiddler, bookDir, userAgent, loadDelay) {
+async function loadBookFb2({ bookName, book, baseURL, chapterList, chapters, proxy, bookDir, userAgent, loadDelay }) {
     
     const chapterListContentType = chapterList.contentType ||
         (chapterList.accept === 'application/json' ? 'json' : 'html');
@@ -113,7 +114,8 @@ async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debug
     console.log(`loading chapter list from ${chapterListURL}`);
     let chapterListData = await loadData(chapterListURL, {
         ...chapterList, 
-        debugFiddler, userAgent
+        proxy, 
+        userAgent
     });
     if (chapterListContentType === 'json') {
         chapterListJson = chapterListData;
@@ -300,7 +302,8 @@ async function loadBookFb2(bookName, book, baseURL, chapterList, chapters, debug
             }
             let chapterData = await loadData(chapterURL, {
                 ...chapters,
-                debugFiddler, userAgent,
+                proxy, 
+                userAgent,
             });
             if (chapterContentType === 'json') {
                 chapterJson = chapterData;
@@ -426,18 +429,14 @@ if (!args['project']) {
 const bookProjectFile = args['project'];
 const bookProject = JSON.parse(readFileSync(bookProjectFile));
 
-const { bookName, baseURL, chapterList, chapters, debugFiddler, bookDir, userAgent, loadDelay } = bookProject;
-
-const book = bookProject.book || {
-    "author": "",
-    "description": "",
-    "genres": [],
-    "title": "",
-    "docId": 1
-};
-
-if (debugFiddler) {
-    process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
+if (!bookProject.book) {
+    bookProject.book = {
+        "author": "",
+        "description": "",
+        "genres": [],
+        "title": "",
+        "docId": 1
+    };
 }
 
-await loadBookFb2(bookName, book, baseURL, chapterList, chapters, debugFiddler, bookDir, userAgent, loadDelay);
+await loadBookFb2(bookProject);

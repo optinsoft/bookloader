@@ -1,0 +1,40 @@
+{
+    "bookName": "puteshestvie-k-bessmertiyu",
+    "bookURL": "https://xn--80ac9aeh6f.xn--p1ai/${bookName}",
+    "baseURL": "https://xn--80ac9aeh6f.xn--p1ai/_next/data/VdwC2uYM1V_18QwSUH4pg",
+    "chapterList": {
+        "URL": "${baseURL}/${bookName}.json?book=${bookName}",
+        "accept": "application/json",
+        "book": {
+            "author": {
+                "path": "$.pageProps.book.author"
+            },
+            "description": {
+                "path": "$.pageProps.book.description"
+            },
+            "genres": {
+                "path": "$.pageProps.book.genres[*].title"
+            },
+            "title": {
+                "path":"$.pageProps.book.title"
+            }
+        },
+        "reverseOrder": true
+    },
+    "chapters": {            
+        "path": "$.pageProps.book.chapters.*.url",
+        "URL": "${baseURL}${chapter}.json",
+        "accept": "application/json",
+        "chapter": {
+            "title": {
+                "path": "$.pageProps.chapter.title"
+            },
+            "content": {
+                "path": "$.pageProps.chapter.content.text"
+            }
+        }
+    },
+    "bookDir": "./book",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+    "loadDelay": 500
+}

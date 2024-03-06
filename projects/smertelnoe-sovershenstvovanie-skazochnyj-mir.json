@@ -1,0 +1,46 @@
+{
+    "bookName": "smertelnoe-sovershenstvovanie-skazochnyj-mir",
+    "book": {
+        "author": "Wang Yu",
+        "description": "«Легенда о Развитии Смертных» — это новелла о сказочном мире, рассказ о мастерстве Хань Ли в волшебном мире и бессмертная легенда о смертном ребенке, который культивирует…",
+        "genres": ["Боевик", "Боевые Искусства", "Приключения", "Ранобэ", "Романтика", "Сюаньхуань"],
+        "title": "Путешествие к Бессмертию: Бессмертный Мир",
+        "docId": 2
+    },
+    "baseURL": "https://ranobe-novels.ru",
+    "chapterList": {
+        "URL": "${baseURL}/wp-content/themes/ranobe-novels/template-parts/category/chapters-query.php",
+        "accept": "application/json",
+        "post": {
+            "contentType": "application/x-www-form-urlencoded; charset=UTF-8",
+            "body": "cat_id=13880&limit=3000&offset=0&query="
+        },
+        "reverseOrder": true
+    },
+    "chapters": {
+        "path": "$.*.post_name",
+        "URL": "${baseURL}/${chapter}/",
+        "accept": "text/html",
+        "chapter": {
+            "title": {
+                "text": "article div.js-full-content h2",
+                "replace": [
+                    {
+                        "regex": "^[^—]*— ",
+                        "replace": ""
+                    },
+                    {
+                        "regex": " —.*$",
+                        "replace": ""
+                    }
+                ]
+            },
+            "content": {
+                "html": "article div.js-full-content > p"
+            }
+        }
+    },
+    "bookDir": "./book",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+    "loadDelay": 500
+}

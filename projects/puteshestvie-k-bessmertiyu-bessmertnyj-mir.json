@@ -1,0 +1,46 @@
+{
+    "bookName": "puteshestvie-k-bessmertiyu-bessmertnyj-mir",
+    "book": {
+        "author": "Wang Yu",
+        "description": "«Легенда о Развитии Смертных» — это новелла о сказочном мире, рассказ о мастерстве Хань Ли в волшебном мире и бессмертная легенда о смертном ребенке, который культивирует…",
+        "genres": ["Боевик", "Боевые Искусства", "Приключения", "Ранобэ", "Романтика", "Сюаньхуань"],
+        "title": "Путешествие к Бессмертию: Бессмертный Мир",
+        "docId": 3
+    },
+    "baseURL": "https://wuxiaworld.ru",
+    "chapterList": {
+        "URL": "${baseURL}/wp-content/themes/Wuxia/template-parts/post/mobile-menu-query.php",
+        "accept": "application/json",
+        "post": {
+            "contentType": "application/x-www-form-urlencoded; charset=UTF-8",
+            "body": "cat_id=24985"
+        },
+        "reverseOrder": false
+    },
+    "chapters": {
+        "path": "$.*.post_name",
+        "URL": "${baseURL}/${bookName}/${chapter}/",
+        "accept": "text/html",
+        "chapter": {
+            "title": {
+                "text": "article div.js-full-content h2",
+                "replace": [
+                    {
+                        "regex": "^RECORD OF MORTAL(’?)S JOURNEY TO IMMORTALITY: IMMORTAL WORLD ",
+                        "replace": ""
+                    },
+                    {
+                        "regex": " Путешествие к Бессмертию: Бессмертный Мир Ранобэ$",
+                        "replace": ""
+                    }                    
+                ]
+            },
+            "content": {
+                "html": "article div.js-full-content > p"
+            }
+        }
+    },
+    "bookDir": "./book",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
+    "loadDelay": 1000
+}
