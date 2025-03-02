@@ -75,7 +75,7 @@ function formatURL(url, values) {
 
 function textReplace(text, replace) {
     return replace.reduce((allText, {regex, replace}) => {
-        const re = new RegExp(regex);
+        const re = new RegExp(regex, "s");
         return allText.replace(re, replace);
     }, text);
 }
