@@ -75,8 +75,8 @@ function formatURL(url, values) {
 
 function textReplace(text, replace) {
     return replace.reduce((allText, {regex, replace}) => {
-        const re = new RegExp(regex, "s");
-        return allText.replace(re, replace);
+        const re = new RegExp(regex, "gs");
+        return allText.replaceAll(re, replace);
     }, text);
 }
 /*    
@@ -98,6 +98,21 @@ function fixContentText(text, chapterName) {
     return text;
 }
 */
+async function queryOllama(model, prompt) {
+  const response = await fetch('http://localhost:11434/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      prompt,
+      stream: false,
+    }),
+  });
+
+  const data = await response.json();
+  return data;
+}
+
 async function loadBookFb2({ bookName, book, baseURL, chapterList, chapters, proxy, bookDir, userAgent, loadDelay }) {
     
     const chapterListContentType = chapterList.contentType ||
@@ -358,9 +373,10 @@ async function loadBookFb2({ bookName, book, baseURL, chapterList, chapters, pro
         if (chapterContentType === 'html') {
             const dom = parseDocument(chapterHtml);
             if (chapters.chapter && chapters.chapter.title) {
-                const { text, replace } = chapters.chapter.title;
-                const elements = selectAll(text, dom);
-                chapterTitle = elements.reduce((allText, el) => {
+                const { attribute, text, replace, verify, ollama } = chapters.chapter.title;
+                const textElements = text != null ? selectAll(text, dom) : [];
+                const attributeElements = attribute != null ? selectAll(attribute.element, dom) : [];
+                let textTitle = textElements.slice(0,1).reduce((allText, el) => {
                     const elText = DomUtils.textContent(el);
                     if (elText) {
                         return allText ? allText + '\r\n' + elText : elText;
@@ -368,8 +384,44 @@ async function loadBookFb2({ bookName, book, baseURL, chapterList, chapters, pro
                     return allText;
                 }, '');
                 if (replace) {
-                    chapterTitle = textReplace(chapterTitle, replace);
+                    textTitle = textReplace(textTitle, replace);
                 }
+                if (verify) {
+                    if (!textTitle.match(verify)) {
+                        textTitle = null;
+                    }
+                }
+                let attributeTitle = attributeElements.slice(0,1).reduce((allText, el) => {
+                    const elText = DomUtils.getAttributeValue(el, attribute.name);
+                    if (elText) {
+                        return allText ? allText + '\r\n' + elText : elText;
+                    }
+                    return allText;
+                }, '');
+                if (replace) {
+                    attributeTitle = textReplace(attributeTitle, replace);
+                }    
+                if (verify) {
+                    if (!attributeTitle.match(verify)) {
+                        attributeTitle = null;
+                    }
+                }
+                chapterTitle = textTitle && attributeTitle ? (textTitle.length < attributeTitle.length ? textTitle : attributeTitle ): textTitle || attributeTitle;
+                if (ollama) {
+                    const re = new RegExp(ollama.regex, "gs");
+                    if (re.test(chapterTitle)) {
+                        const prompt = ollama.prompt.replace('%s', chapterTitle);
+                        console.log(`ollama prompt: ${prompt}`);
+                        const ollamaResult = await queryOllama(ollama.model, prompt);
+                        if (ollamaResult && ollamaResult.response) {
+                            console.log(`ollama response: ${ollamaResult.response}`);
+                            chapterTitle = ollamaResult.response;
+                        }
+                        else {
+                            console.log(`no ollama result or response`);
+                        }
+                    }
+                }                
             }
             if (chapters.chapter && chapters.chapter.content) {
                 const { html, replace } = chapters.chapter.content;
@@ -384,7 +436,12 @@ async function loadBookFb2({ bookName, book, baseURL, chapterList, chapters, pro
                     return allHtml;
                 }, '');
                 if (replace) {
-                    chapterContent = textReplace(chapterContent, replace);
+                    if (chapterContent.indexOf("&nbsp;") >= 0) {
+                        chapterContent = textReplace(chapterContent, replace);                        
+                    }
+                    else {
+                        chapterContent = textReplace(chapterContent, replace);
+                    }
                 }
             }
         }
