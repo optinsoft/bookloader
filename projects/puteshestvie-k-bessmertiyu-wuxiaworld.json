@@ -1,10 +1,10 @@
 {
-    "bookName": "puteshestvie-k-bessmertiyu-goblinteam",
+    "bookName": "puteshestvie-k-bessmertiyu",
     "book": {
         "author": "Wang Yu",
         "description": "Бедный и обычный мальчик из деревни присоединяется к небольшой секте в Цзян Ху и случайно становится неофициальным учеником. Как Хань Ли, простолюдин по рождению, закрепится в своей секте? С его посредственными способностями, как он успешно пройдет путь совершенствования и станет бессмертным?",
         "genres": ["Боевик", "Боевые Искусства", "Приключения", "Ранобэ", "Романтика", "Сюаньхуань"],
-        "title": "Путешествие к Бессмертию •GoblinTeam•",
+        "title": "Путешествие к Бессмертию",
         "docId": 4
     },
     "baseURL": "https://wuxiaworld.ru",
@@ -13,7 +13,7 @@
         "accept": "application/json",
         "post": {
             "contentType": "application/x-www-form-urlencoded; charset=UTF-8",
-            "body": "cat_id=26999"
+            "body": "cat_id=19087"
         },
         "reverseOrder": false
     },
@@ -23,39 +23,27 @@
         "accept": "text/html",
         "chapter": {
             "title": {
-                "text": "article div.js-full-content p:first-of-type",
-                "_text2": "title",
+                "_text": "article div.js-full-content p:first-of-type",
+                "text": "title",
                 "attribute": {
                     "name": "content",
                     "element": "meta[name=\"description\"]"
                 },
                 "replace": [
                     {
-                        "regex": " Путешествие к Бессмертию •GoblinTeam• Глава(\\.)? [0-9]+",
+                        "regex": "^Путешествие к Бессмертию ",
                         "replace": ""
                     },
                     {
-                        "regex": " Путешествие к Бессмертию •GoblinTeam• .*",
-                        "replace": ". "
+                        "regex": "(?<=Глава [0-9]+) - ",
+                        "replace": ": "
                     },
                     {
-                        "regex": ": ",
-                        "replace": ". "
-                    },
-                    {
-                        "regex": "^Глава\\. ",
-                        "replace": "Глава "
-                    },
-                    {
-                        "regex": "(?<![0-9])\\..*\\.\\.\\.$",
-                        "replace": "."
-                    },
-                    {
-                        "regex": " — .*.$",
+                        "regex": " Ранобэ Новелла$",
                         "replace": ""
                     }
                 ],
-                "verify": "Глава [0-9]+\\. .*",
+                "_verify": "Глава [0-9]+\\. .*",
                 "_ollama": {
                     "prompt": "В следующем тексте сразу за коротким заголовком может идти текст, заголовок идет сразу за Глава с номером, найди конец заголовка, в ответе напиши только заголовок, заголовок не содержит тире, Глава с номером в начале заголовка не убирай: %s",
                     "model": "gemma4:e2b",

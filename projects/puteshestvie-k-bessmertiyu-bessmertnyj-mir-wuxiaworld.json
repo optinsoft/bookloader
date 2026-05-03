@@ -1,10 +1,10 @@
 {
-    "bookName": "puteshestvie-k-bessmertiyu-carstvo-bessmertnyh-goblinteam",
+    "bookName": "puteshestvie-k-bessmertiyu-bessmertnyj-mir",
     "book": {
         "author": "Wang Yu",
         "description": "«Легенда о Развитии Смертных» — это новелла о сказочном мире, рассказ о мастерстве Хань Ли в волшебном мире и бессмертная легенда о смертном ребенке, который культивирует…",
         "genres": ["Боевик", "Боевые Искусства", "Приключения", "Ранобэ", "Романтика", "Сюаньхуань"],
-        "title": "Путешествие к Бессмертию: Бессмертный Мир •GoblinTeam•",
+        "title": "Путешествие к Бессмертию: Бессмертный Мир",
         "docId": 5
     },
     "baseURL": "https://wuxiaworld.ru",
@@ -13,7 +13,7 @@
         "accept": "application/json",
         "post": {
             "contentType": "application/x-www-form-urlencoded; charset=UTF-8",
-            "body": "cat_id=26994"
+            "body": "cat_id=24985"
         },
         "reverseOrder": false
     },
@@ -27,7 +27,7 @@
                 "text": "title",
                 "replace": [
                     {
-                        "regex": "^Путешествие к бессмертию: Царство Бессмертных •GoblinTeam• ",
+                        "regex": "^Путешествие к Бессмертию: Бессмертный Мир ",
                         "replace": ""
                     },
                     {
@@ -37,7 +37,17 @@
                 ]
             },
             "content": {
-                "html": "article div.js-full-content > p"
+                "html": "article div.js-full-content > p",
+                "replace": [
+                    {
+                        "regex": "<br(\\s[^>]*)?>",
+                        "replace": "<br/>"
+                    },
+                    {
+                        "regex": "<div(\\s[^>]*)?><hr class=\"js-remove\">.*<hr class=\"js-remove\"><\\/div>",
+                        "replace": ""
+                    }
+                ]
             }
         }
     },
